@@ -1,19 +1,25 @@
 <script>
+(function(){
   // scroll-reveal
   const revealEls = document.querySelectorAll('.reveal');
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
-  }, { threshold: 0.15 });
-  revealEls.forEach(el => io.observe(el));
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+    }, { threshold: 0.15 });
+    revealEls.forEach(el => io.observe(el));
+  } else {
+    // fallback for very old browsers: reveal immediately
+    revealEls.forEach(el => el.classList.add('in'));
+  }
 
   // cursor glow (desktop only)
   const glow = document.getElementById('cursorGlow');
-  if (window.matchMedia('(hover: hover)').matches){
+  if (glow && window.matchMedia && window.matchMedia('(hover: hover)').matches){
     window.addEventListener('mousemove', (e) => {
       glow.style.left = e.clientX + 'px';
       glow.style.top = e.clientY + 'px';
       glow.style.opacity = '1';
-    });
+    }, { passive: true });
     window.addEventListener('mouseleave', () => { glow.style.opacity = '0'; });
   }
 
@@ -21,39 +27,65 @@
   const disc = document.querySelector('.disc-wrap');
   const burst = document.querySelector('.burst');
   window.addEventListener('scroll', () => {
-    const y = window.scrollY;
+    const y = window.scrollY || window.pageYOffset || 0;
     if (disc) disc.style.transform = `translateY(${y * 0.15}px)`;
     if (burst) burst.style.transform = `translateY(${y * -0.08}px)`;
   }, { passive: true });
 
-  // tilt effect on cards
-  document.querySelectorAll('.tilt').forEach(card => {
-    card.addEventListener('mousemove', (e) => {
-      const r = card.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - 0.5;
-      const y = (e.clientY - r.top) / r.height - 0.5;
-      card.style.transform = `perspective(600px) rotateX(${-y * 10}deg) rotateY(${x * 10}deg) translateY(-2px)`;
+  // tilt effect on cards (desktop only)
+  if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+    document.querySelectorAll('.tilt').forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        card.style.transform = `perspective(600px) rotateX(${-y * 10}deg) rotateY(${x * 10}deg) translateY(-2px)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(600px) rotateX(0) rotateY(0) translateY(0)';
+      });
     });
-    card.addEventListener('mouseleave', () => {
-      card.style.transform = 'perspective(600px) rotateX(0) rotateY(0)';
-    });
-  });
+  }
 
-  // MP3 audio toggle
+  // MP3 audio toggle (robust + accessible)
   const musicBtn = document.getElementById('musicBtn');
-  const bgMusic = new Audio("/audio.mp3");
-  bgMusic.loop = true; 
-  let playing = false;
+  if (musicBtn) {
+    const bgMusic = new Audio("/audio.mp3");
+    bgMusic.loop = true;
+    let playing = false;
 
-  musicBtn.addEventListener('click', () => {
-    if (!playing){
-      bgMusic.play();
-      playing = true;
-      musicBtn.classList.add('on');
-    } else {
-      bgMusic.pause();
-      playing = false;
-      musicBtn.classList.remove('on');
+    // ARIA + keyboard support
+    musicBtn.setAttribute('aria-pressed', 'false');
+    if (!musicBtn.hasAttribute('role')) musicBtn.setAttribute('role', 'button');
+    if (!musicBtn.hasAttribute('tabindex')) musicBtn.setAttribute('tabindex', '0');
+
+    function setPlayingState(state){
+      playing = state;
+      musicBtn.classList.toggle('on', state);
+      musicBtn.setAttribute('aria-pressed', state ? 'true' : 'false');
     }
-  });
+
+    musicBtn.addEventListener('click', () => {
+      if (!playing) {
+        // play() returns a promise that may reject (autoplay policy)
+        bgMusic.play().then(() => {
+          setPlayingState(true);
+        }).catch((err) => {
+          console.warn('Audio playback failed:', err);
+          // optional: provide UI feedback to user here
+        });
+      } else {
+        bgMusic.pause();
+        setPlayingState(false);
+      }
+    });
+
+    musicBtn.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        musicBtn.click();
+      }
+    });
+  }
+})();
 </script>
