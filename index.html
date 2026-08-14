@@ -1,25 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JacobiwSs.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --fg:#f2efe8;
+    --muted:#8a8a84;
+    --line:#2b2b28;
+    --accent:#ff2d55;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family:'Space Mono', monospace;
+    overflow-x:hidden;
+    min-height:100vh;
+  }
+  /* film grain overlay */
+  .grain{
+    position:fixed; inset:0; pointer-events:none; z-index:50;
+    opacity:.06; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scanline{
+    position:fixed; inset:0; pointer-events:none; z-index:49;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
+  }
+
+  /* crosshair / viewfinder marks */
+  .mark{
+    position:absolute; width:14px; height:14px; opacity:.35; pointer-events:none;
+  }
+  .mark::before, .mark::after{
+    content:''; position:absolute; background:var(--muted);
+  }
+  .mark::before{ width:100%; height:1px; top:50%; }
+  .mark::after{ width:1px; height:100%; left:50%; }
+  .corner{
+    position:absolute; width:22px; height:22px; opacity:.5; pointer-events:none;
+  }
+  .corner.tl{ border-top:1px solid var(--muted); border-left:1px solid var(--muted); top:20px; left:20px; }
+  .corner.br{ border-bottom:1px solid var(--muted); border-right:1px solid var(--muted); bottom:20px; right:20px; }
+
+  section{
+    position:relative;
+    min-height:100vh;
+    padding:80px 28px 60px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  .eyebrow{
+    font-size:11px; letter-spacing:.15em; color:var(--muted);
+    display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  }
+  .eyebrow .dot{width:5px;height:5px;background:var(--accent);border-radius:50%;}
+
+  h1.glitch{
+    font-family:'Press Start 2P', monospace;
+    font-size:clamp(28px, 8vw, 46px);
+    line-height:1.3;
+    position:relative;
+    letter-spacing:1px;
+  }
+  h1.glitch::before, h1.glitch::after{
+    content:attr(data-text);
+    position:absolute; left:0; top:0; width:100%;
+    overflow:hidden; opacity:.6;
+  }
+  h1.glitch::before{ color:var(--accent); clip-path:inset(0 0 55% 0); animation:glitchTop 4.5s infinite linear; }
+  h1.glitch::after{ color:#4dd0e1; clip-path:inset(55% 0 0 0); animation:glitchBot 4.5s infinite linear; }
+  @keyframes glitchTop{
+    0%,90%,100%{ transform:translate(0,0); opacity:0; }
+    91%{ transform:translate(-2px,-1px); opacity:.7; }
+    93%{ transform:translate(2px,1px); opacity:.7; }
+    95%{ transform:translate(-1px,0); opacity:0; }
+  }
+  @keyframes glitchBot{
+    0%,90%,100%{ transform:translate(0,0); opacity:0; }
+    92%{ transform:translate(2px,1px); opacity:.7; }
+    94%{ transform:translate(-2px,-1px); opacity:.7; }
+    96%{ transform:translate(1px,0); opacity:0; }
+  }
+
+  p.body-text{
+    font-size:15px; line-height:1.85; color:#d8d5cd; max-width:560px; margin-top:26px;
+  }
+  p.body-text + p.body-text{ margin-top:16px; }
+
+  .track-tag{
+    position:absolute; font-size:10px; color:var(--muted); letter-spacing:.05em;
+  }
+
+  /* vinyl / halftone disc */
+  .disc-wrap{
+    position:absolute; width:340px; height:340px;
+    right:-120px; top:-60px; opacity:.9;
+    animation:spin 14s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .disc{
+    width:100%; height:100%; border-radius:50%;
+    background:
+      radial-gradient(circle at center, var(--bg) 0 8%, transparent 8.2%),
+      repeating-radial-gradient(circle at center, var(--fg) 0px, var(--fg) 1px, transparent 1.6px, transparent 5px);
+    -webkit-mask:radial-gradient(circle, black 0 68%, transparent 70%);
+            mask:radial-gradient(circle, black 0 68%, transparent 70%);
+    opacity:.55;
+    box-shadow:0 0 60px rgba(0,0,0,.6);
+  }
+  .disc::after{ content:''; }
+
+  /* rotating badge ring (contact section logo mark) */
+  .badge-ring{
+    position:absolute; width:180px; height:180px;
+    border-radius:50%;
+    border:1px dashed var(--muted);
+    opacity:.4;
+    animation:spin 26s linear infinite;
+    pointer-events:none;
+  }
+  .badge-ring::before, .badge-ring::after{
+    content:''; position:absolute; width:6px; height:6px; border-radius:50%;
+    background:var(--accent);
+  }
+  .badge-ring::before{ top:-3px; left:calc(50% - 3px); }
+  .badge-ring::after{ bottom:-3px; left:calc(50% - 3px); }
+
+  /* about section */
+  #about{ padding-top:110px; }
+
+  /* brand section */
+  #brand{ align-items:center; text-align:center; }
+  .burst{
+    width:220px; height:220px; position:absolute; top:10%; right:5%;
+    background:conic-gradient(from 0deg, var(--fg) 0 8deg, transparent 8deg 22deg);
+    -webkit-mask:radial-gradient(circle, black 30%, transparent 72%);
+            mask:radial-gradient(circle, black 30%, transparent 72%);
+    opacity:.5;
+    animation:spin 20s linear infinite reverse;
+  }
+  .wordmark{
+    font-family:'Space Mono', monospace;
+    font-style:italic;
+    font-weight:700;
+    font-size:clamp(40px, 12vw, 78px);
+    letter-spacing:-1px;
+  }
+  .wordmark .dot{ color:var(--accent); }
+  .tagline{
+    margin-top:18px; color:var(--muted); font-size:13px; letter-spacing:.08em;
+  }
+  .now-playing{
+    margin-top:56px; width:100%; max-width:420px;
+    border:1px solid var(--line); border-radius:16px; padding:16px;
+    display:flex; align-items:center; gap:14px;
+    text-decoration:none; color:var(--fg);
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .now-playing:hover{ border-color:var(--accent); transform:translateY(-2px); }
+  .np-art{
+    width:56px; height:56px; border-radius:10px; flex-shrink:0;
+    background:linear-gradient(135deg, #222 0%, #000 60%, var(--accent) 140%);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Press Start 2P', monospace; font-size:9px; color:var(--muted);
+    overflow:hidden;
+  }
+  .np-info{ flex:1; text-align:left; overflow:hidden; }
+  .np-title{ font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .np-artist{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .np-eyebrow{ font-size:9px; color:var(--accent); letter-spacing:.1em; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+  .np-eyebrow .pulse{ width:5px; height:5px; border-radius:50%; background:var(--accent); animation:pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.3; } }
+
+  .rotation{
+    margin-top:24px; display:flex; flex-direction:column; gap:14px; width:100%; max-width:420px;
+    text-align:left;
+  }
+  .rotation-title{ font-size:11px; color:var(--muted); letter-spacing:.15em; margin-bottom:6px; }
+  .rot-item{
+    display:flex; justify-content:space-between; align-items:center;
+    border-bottom:1px solid var(--line); padding:10px 2px; font-size:13px;
+  }
+  .rot-item span.num{ color:var(--muted); margin-right:12px; }
+  .bars{
+    display:flex; gap:2px; align-items:flex-end; height:14px;
+  }
+  .bars span{
+    width:2px; background:var(--accent); animation:bar 1.1s ease-in-out infinite;
+  }
+  .bars span:nth-child(1){ height:40%; animation-delay:0s; }
+  .bars span:nth-child(2){ height:100%; animation-delay:.15s; }
+  .bars span:nth-child(3){ height:65%; animation-delay:.3s; }
+  .bars span:nth-child(4){ height:85%; animation-delay:.45s; }
+  @keyframes bar{ 0%,100%{ transform:scaleY(.4);} 50%{ transform:scaleY(1);} }
+
+  /* contact section */
+  #contact{ align-items:center; text-align:center; }
+  .contact-title{
+    font-family:'Press Start 2P', monospace;
+    font-size:clamp(26px, 8vw, 40px);
+  }
+  .card-crumple{
+    width:150px; margin:50px auto; opacity:.85;
+    filter:grayscale(1) contrast(1.1);
+  }
+  .card-crumple svg{ width:100%; height:auto; display:block; }
+  .me-mark{
+    font-size:clamp(46px, 14vw, 80px); font-weight:700; margin-top:10px;
+  }
+  .icon-row{
+    display:flex; gap:22px; justify-content:center; margin-top:30px;
+  }
+  .icon-btn{
+    width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--line); text-decoration:none; color:var(--fg);
+    transition:transform .2s ease, border-color .2s ease;
+  }
+  .icon-btn:hover{ transform:translateY(-3px); border-color:var(--accent); }
+  .icon-btn svg{ width:22px; height:22px; fill:currentColor; }
+  .icon-label{ font-size:10px; color:var(--muted); margin-top:8px; letter-spacing:.05em; }
+  .icon-col{ display:flex; flex-direction:column; align-items:center; }
+
+  .email-line{
+    margin-top:38px; font-size:13px; color:var(--muted);
+  }
+  .email-line a{ color:var(--fg); text-decoration:underline; text-underline-offset:4px; }
+
+  /* fixed controls */
+  .controls{
+    position:fixed; right:18px; bottom:18px; z-index:60;
+    display:flex; flex-direction:column; align-items:flex-end; gap:6px;
+    font-size:11px;
+  }
+  .controls button{
+    background:none; border:none; color:var(--fg); font-family:'Space Mono', monospace;
+    font-size:11px; cursor:pointer; letter-spacing:.05em; padding:2px 0;
+  }
+  .controls button.on{ text-decoration:underline; color:var(--accent); }
+  .controls button:not(.on){ text-decoration:underline; text-decoration-color:var(--muted); }
+
+  /* scroll reveal */
+  .reveal{
+    opacity:0; transform:translateY(24px);
+    transition:opacity .8s ease, transform .8s ease;
+  }
+  .reveal.in{ opacity:1; transform:translateY(0); }
+  .reveal-delay-1{ transition-delay:.1s; }
+  .reveal-delay-2{ transition-delay:.22s; }
+  .reveal-delay-3{ transition-delay:.34s; }
+
+  /* cursor glow */
+  .cursor-glow{
+    position:fixed; width:280px; height:280px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,45,85,0.08) 0%, transparent 70%);
+    pointer-events:none; z-index:5; transform:translate(-50%,-50%);
+    transition:opacity .3s ease; opacity:0; left:0; top:0;
+  }
+
+  /* tiltable elements */
+  .tilt{
+    transition:transform .15s ease-out;
+    transform-style:preserve-3d;
+    will-change:transform;
+  }
+
+  /* marks drift */
+  .corner.tl{ animation:driftTL 6s ease-in-out infinite; }
+  .corner.br{ animation:driftBR 6s ease-in-out infinite; }
+  @keyframes driftTL{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(3px,3px);} }
+  @keyframes driftBR{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(-3px,-3px);} }
+
+  footer{
+    text-align:center; padding:30px; color:var(--muted); font-size:10px; letter-spacing:.1em;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .footer-eq{
+    display:flex; gap:2px; align-items:flex-end; height:10px;
+  }
+  .footer-eq span{
+    width:2px; background:var(--accent); animation:bar 1.1s ease-in-out infinite;
+  }
+  .footer-eq span:nth-child(1){ height:35%; animation-delay:0s; }
+  .footer-eq span:nth-child(2){ height:90%; animation-delay:.12s; }
+  .footer-eq span:nth-child(3){ height:55%; animation-delay:.24s; }
+  .footer-eq span:nth-child(4){ height:75%; animation-delay:.36s; }
+  .footer-eq span:nth-child(5){ height:45%; animation-delay:.48s; }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<div class="scanline"></div>
+<div class="cursor-glow" id="cursorGlow"></div>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="corner tl"></div>
+  <div class="corner br"></div>
+  <div class="disc-wrap"><div class="disc"></div></div>
+  <span class="track-tag" style="top:26px; left:28px;">TRK_01&nbsp; 0.938</span>
+
+  <div class="eyebrow reveal"><span class="dot"></span> about</div>
+  <h1 class="glitch reveal reveal-delay-1" data-text="jacobiws.">jacobiws.</h1>
+
+  <p class="body-text reveal reveal-delay-2">
+    Headphones in before the day even starts, and rarely out before it ends. Rap
+    and R&amp;B run everything around here &mdash; heavy 808s, smooth hooks, the
+    kind of sound that hits different with the lights off.
+  </p>
+  <p class="body-text reveal reveal-delay-3">
+    Somewhere between building playlists, catching new drops before they blow
+    up, and freestyling half-verses in the car when nobody's listening, it
+    stopped being a hobby and became the whole vibe. Still figuring it out
+    &mdash; but the sound's always on.
+  </p>
+</section>
+
+<!-- BRAND -->
+<section id="brand">
+  <div class="burst"></div>
+  <span class="track-tag" style="top:26px; left:28px;">TRK_05&nbsp; 0.962</span>
+  <div class="eyebrow reveal" style="justify-content:center;"><span class="dot"></span> the wave</div>
+  <h2 class="wordmark reveal reveal-delay-1">JacobiwSs<span class="dot">.</span></h2>
+  <p class="tagline reveal reveal-delay-1">rap / r&amp;b &mdash; always in rotation.</p>
+
+  <a class="now-playing tilt reveal reveal-delay-2" href="https://music.apple.com/us/song/wedidit/6781478844" target="_blank" rel="noopener">
+    <div class="np-art">KC</div>
+    <div class="np-info">
+      <div class="np-eyebrow"><span class="pulse"></span>now playing</div>
+      <div class="np-title">wedidit</div>
+      <div class="np-artist">Ken Carson ft. Playboi Carti &middot; tap to stream</div>
+    </div>
+  </a>
+
+  <div class="rotation reveal reveal-delay-3">
+    <div class="rotation-title">also on rotation</div>
+    <div class="rot-item">
+      <span><span class="num">01</span>Karma Police &mdash; Radiohead</span>
+      <div class="bars"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="rot-item">
+      <span><span class="num">02</span>Welcome to the Black Parade &mdash; My Chemical Romance</span>
+      <div class="bars"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="rot-item">
+      <span><span class="num">03</span>Bohemian Rhapsody &mdash; Queen</span>
+      <div class="bars"><span></span><span></span><span></span><span></span></div>
+    </div>
+    <div class="rot-item">
+      <span><span class="num">04</span>Best Friend &mdash; Young Thug</span>
+      <div class="bars"><span></span><span></span><span></span><span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="corner tl"></div>
+  <div class="corner br"></div>
+  <span class="track-tag" style="top:26px; left:28px;">TRK_10&nbsp; 0.985</span>
+
+  <h2 class="contact-title reveal">contact</h2>
+
+  <div class="card-crumple tilt reveal reveal-delay-1">
+    <svg viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="foldShade" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#2a2a2a"/>
+          <stop offset="45%" stop-color="#0c0c0c"/>
+          <stop offset="55%" stop-color="#050505"/>
+          <stop offset="100%" stop-color="#1c1c1c"/>
+        </linearGradient>
+        <linearGradient id="foldShade2" x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#151515"/>
+          <stop offset="100%" stop-color="#000"/>
+        </linearGradient>
+      </defs>
+      <!-- back panel (folded-under half) -->
+      <polygon points="20,22 68,14 62,52 22,66" fill="url(#foldShade2)" stroke="#3a3a3a" stroke-width="0.6"/>
+      <!-- front panel -->
+      <polygon points="22,66 62,52 84,58 58,92 16,72" fill="url(#foldShade)" stroke="#444" stroke-width="0.6"/>
+      <!-- clean card, no text -->
+      <line x1="22" y1="66" x2="62" y2="52" stroke="#555" stroke-width="0.5" stroke-dasharray="1.5,1.5"/>
+    </svg>
+  </div>
+
+  <div class="badge-ring" style="left:50%; top:56%; transform:translate(-50%,-50%);"></div>
+
+  <div class="me-mark reveal reveal-delay-2">me.</div>
+
+  <div class="icon-row reveal reveal-delay-3">
+    <div class="icon-col">
+      <a class="icon-btn" href="mailto:shourovjacob04@gmail.com" aria-label="Email">
+        <svg viewBox="0 0 24 24"><path d="M2 4h20v16H2V4zm2 2v.01L12 13l8-6.99V6H4zm16 2.24l-7.4 6.47a1 1 0 0 1-1.2 0L4 8.24V18h16V8.24z"/></svg>
+      </a>
+      <div class="icon-label">email</div>
+    </div>
+    <div class="icon-col">
+      <a class="icon-btn" href="https://www.instagram.com/jacobiws_?igsh=NmIwcTFxNnF5Z2Fx&utm_source=qr" target="_blank" rel="noopener" aria-label="Instagram">
+        <svg viewBox="0 0 24 24"><path d="M12 2c2.7 0 3.05.01 4.12.06 1.07.05 1.8.22 2.44.47a4.9 4.9 0 0 1 1.78 1.16 4.9 4.9 0 0 1 1.16 1.78c.25.64.42 1.37.47 2.44C21.99 8.95 22 9.3 22 12s-.01 3.05-.06 4.12c-.05 1.07-.22 1.8-.47 2.44a4.9 4.9 0 0 1-1.16 1.78 4.9 4.9 0 0 1-1.78 1.16c-.64.25-1.37.42-2.44.47C15.05 21.99 14.7 22 12 22s-3.05-.01-4.12-.06c-1.07-.05-1.8-.22-2.44-.47a4.9 4.9 0 0 1-1.78-1.16 4.9 4.9 0 0 1-1.16-1.78c-.25-.64-.42-1.37-.47-2.44C2.01 15.05 2 14.7 2 12s.01-3.05.06-4.12c.05-1.07.22-1.8.47-2.44A4.9 4.9 0 0 1 3.7 3.7 4.9 4.9 0 0 1 5.44 2.53c.64-.25 1.37-.42 2.44-.47C8.95 2.01 9.3 2 12 2zm0 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 8.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4zm5.2-8.4a1.17 1.17 0 1 1 0-2.34 1.17 1.17 0 0 1 0 2.34z"/></svg>
+      </a>
+      <div class="icon-label">instagram</div>
+    </div>
+    <div class="icon-col">
+      <a class="icon-btn" href="https://music.apple.com/profile/jacobiws_" target="_blank" rel="noopener" aria-label="Apple Music">
+        <svg viewBox="0 0 24 24"><path d="M17.5 2c-.3 0-.6.03-.9.1L9 3.6c-1.1.24-2 1.24-2 2.4v10.9a3.4 3.4 0 0 0-1.4-.3A3.6 3.6 0 1 0 9.2 20V8.2l7-1.5v8.6a3.4 3.4 0 0 0-1.4-.3 3.6 3.6 0 1 0 3.6 3.6V4a2 2 0 0 0-1.9-2z"/></svg>
+      </a>
+      <div class="icon-label">apple music</div>
+    </div>
+  </div>
+
+  <div class="email-line">
+    or just email <a href="mailto:shourovjacob04@gmail.com">shourovjacob04@gmail.com</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-eq"><span></span><span></span><span></span><span></span><span></span></div>
+  JACOBIWSS. &mdash; ALWAYS ON ROTATION
+</footer>
+
+<div class="controls">
+  <button id="musicBtn">music on/off</button>
+</div>
+
 <script>
-(function(){
   // scroll-reveal
   const revealEls = document.querySelectorAll('.reveal');
-  if ('IntersectionObserver' in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
-    }, { threshold: 0.15 });
-    revealEls.forEach(el => io.observe(el));
-  } else {
-    // fallback for very old browsers: reveal immediately
-    revealEls.forEach(el => el.classList.add('in'));
-  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => io.observe(el));
 
   // cursor glow (desktop only)
   const glow = document.getElementById('cursorGlow');
-  if (glow && window.matchMedia && window.matchMedia('(hover: hover)').matches){
+  if (window.matchMedia('(hover: hover)').matches){
     window.addEventListener('mousemove', (e) => {
       glow.style.left = e.clientX + 'px';
       glow.style.top = e.clientY + 'px';
       glow.style.opacity = '1';
-    }, { passive: true });
+    });
     window.addEventListener('mouseleave', () => { glow.style.opacity = '0'; });
   }
 
@@ -27,65 +457,131 @@
   const disc = document.querySelector('.disc-wrap');
   const burst = document.querySelector('.burst');
   window.addEventListener('scroll', () => {
-    const y = window.scrollY || window.pageYOffset || 0;
+    const y = window.scrollY;
     if (disc) disc.style.transform = `translateY(${y * 0.15}px)`;
     if (burst) burst.style.transform = `translateY(${y * -0.08}px)`;
   }, { passive: true });
 
-  // tilt effect on cards (desktop only)
-  if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
-    document.querySelectorAll('.tilt').forEach(card => {
-      card.addEventListener('mousemove', (e) => {
-        const r = card.getBoundingClientRect();
-        const x = (e.clientX - r.left) / r.width - 0.5;
-        const y = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = `perspective(600px) rotateX(${-y * 10}deg) rotateY(${x * 10}deg) translateY(-2px)`;
-      });
-      card.addEventListener('mouseleave', () => {
-        card.style.transform = 'perspective(600px) rotateX(0) rotateY(0) translateY(0)';
-      });
+  // tilt effect on cards
+  document.querySelectorAll('.tilt').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = `perspective(600px) rotateX(${-y * 10}deg) rotateY(${x * 10}deg) translateY(-2px)`;
     });
-  }
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'perspective(600px) rotateX(0) rotateY(0)';
+    });
+  });
 
-  // MP3 audio toggle (robust + accessible)
+  // procedural lo-fi boom-bap loop toggle
   const musicBtn = document.getElementById('musicBtn');
-  if (musicBtn) {
-    const bgMusic = new Audio("/audio.mp3");
-    bgMusic.loop = true;
-    let playing = false;
+  let ctx, playing = false, stepIndex = 0, loopId = null;
+  const stepTime = 0.166; // ~90bpm sixteenth notes
 
-    // ARIA + keyboard support
-    musicBtn.setAttribute('aria-pressed', 'false');
-    if (!musicBtn.hasAttribute('role')) musicBtn.setAttribute('role', 'button');
-    if (!musicBtn.hasAttribute('tabindex')) musicBtn.setAttribute('tabindex', '0');
-
-    function setPlayingState(state){
-      playing = state;
-      musicBtn.classList.toggle('on', state);
-      musicBtn.setAttribute('aria-pressed', state ? 'true' : 'false');
-    }
-
-    musicBtn.addEventListener('click', () => {
-      if (!playing) {
-        // play() returns a promise that may reject (autoplay policy)
-        bgMusic.play().then(() => {
-          setPlayingState(true);
-        }).catch((err) => {
-          console.warn('Audio playback failed:', err);
-          // optional: provide UI feedback to user here
-        });
-      } else {
-        bgMusic.pause();
-        setPlayingState(false);
-      }
-    });
-
-    musicBtn.addEventListener('keydown', (e) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        musicBtn.click();
-      }
-    });
+  function noiseBuffer(context, duration){
+    const buffer = context.createBuffer(1, context.sampleRate * duration, context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
   }
-})();
+
+  function kick(time){
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(130, time);
+    o.frequency.exponentialRampToValueAtTime(42, time + 0.14);
+    g.gain.setValueAtTime(0.95, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+    o.connect(g).connect(ctx.destination);
+    o.start(time); o.stop(time + 0.32);
+  }
+
+  function snare(time){
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 0.2);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2200;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.45, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+    src.connect(bp).connect(g).connect(ctx.destination);
+    src.start(time); src.stop(time + 0.15);
+  }
+
+  function hat(time, vol){
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, 0.045);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 8500;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+    src.connect(hp).connect(g).connect(ctx.destination);
+    src.start(time); src.stop(time + 0.045);
+  }
+
+  function bass(time, freq, dur){
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.value = freq;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 320;
+    g.gain.setValueAtTime(0.001, time);
+    g.gain.linearRampToValueAtTime(0.3, time + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    o.connect(lp).connect(g).connect(ctx.destination);
+    o.start(time); o.stop(time + dur + 0.02);
+  }
+
+  // simple minor-pentatonic-ish arpeggio, plucky bell tone
+  const arpFreqs = [261.6, 311.1, 349.2, 392.0, 466.2];
+  function pluck(time, freq){
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.001, time);
+    g.gain.linearRampToValueAtTime(0.14, time + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+    o.connect(g).connect(ctx.destination);
+    o.start(time); o.stop(time + 0.52);
+  }
+
+  // 32-step pattern, original composition, no sampled/copyrighted material
+  const kickSteps  = [0, 10, 16, 24];
+  const snareSteps = [8, 24];
+  const bassNotes  = { 0: [55, 0.5], 16: [49, 0.5] };
+  const arpSteps   = [2, 6, 10, 14, 18, 20, 26, 30];
+
+  function scheduleStep(){
+    const time = ctx.currentTime + 0.05;
+    const s = stepIndex % 32;
+    if (kickSteps.includes(s)) kick(time);
+    if (snareSteps.includes(s)) snare(time);
+    hat(time, s % 2 === 0 ? 0.16 : 0.07);
+    if (bassNotes[s]) bass(time, bassNotes[s][0], bassNotes[s][1]);
+    if (arpSteps.includes(s)) pluck(time, arpFreqs[arpSteps.indexOf(s) % arpFreqs.length]);
+    stepIndex++;
+  }
+
+  musicBtn.addEventListener('click', () => {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!playing){
+      ctx.resume();
+      loopId = setInterval(scheduleStep, stepTime * 1000);
+      playing = true;
+      musicBtn.classList.add('on');
+    } else {
+      clearInterval(loopId);
+      playing = false;
+      musicBtn.classList.remove('on');
+    }
+  });
 </script>
+
+</body>
+</html>
